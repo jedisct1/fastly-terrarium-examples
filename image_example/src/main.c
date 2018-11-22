@@ -193,7 +193,7 @@ static int jpeg_compress(uint8_t **jpeg_buf_p, size_t *jpeg_len_p, const Image *
 }
 
 // HTTP query handler
-__attribute__((visibility("default"))) void run(void)
+void run(void)
 {
     request_t    outgoing_req;
     response_t   jpeg_bin_resp;
