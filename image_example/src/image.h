@@ -1,0 +1,33 @@
+#ifndef image_H
+#define image_H
+
+#include <stdint.h>
+#include <stdlib.h>
+
+// IMAGE_URI should be the address of a JPEG image
+
+#warning *** Change the URI below, then delete this line ***
+#define IMAGE_URI "https://example.com/image.jpg"
+
+// Do not change anything below
+
+#define CACHE_KEY "image-demo-cached-image"
+#define THETA 256
+#define OPACITY_MAX 100
+
+typedef struct Image {
+    uint8_t *     buf;
+    size_t        buf_len;
+    unsigned int  width;
+    unsigned int  height;
+    unsigned int  depth;
+    unsigned long row_stride;
+} Image;
+
+void *guest_malloc(size_t size);
+
+void guest_free(void *ptr);
+
+int get_query_ival(unsigned int *value_p, const char *name);
+
+#endif
