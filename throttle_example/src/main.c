@@ -233,7 +233,7 @@ static int send_new_challenge(const uint8_t ip[16])
              suffix[4], suffix[5], suffix[6], suffix[7], CHALLENGE_LEVEL_FIRST,
              CHALLENGE_LEVEL_LAST, CHALLENGE_ITERATIONS);
     hostcall_resp_set_body(RESPONSE_OUTGOING, jscode, strlen(jscode));
-    set_resp_http_header(RESPONSE_OUTGOING, "Cache-Control", "no-cache");
+    set_resp_http_header(RESPONSE_OUTGOING, "Cache-Control", "private, no-cache, no-store, must-revalidate, max-age=0");
     set_resp_http_header(RESPONSE_OUTGOING, "Content-Type", "text/html");
 
     return 0;
@@ -315,7 +315,7 @@ static void proxy(void)
     free(body);
     free(method);
     copy_resp_headers(RESPONSE_OUTGOING, upstream_resp);
-    set_resp_http_header(RESPONSE_OUTGOING, "Cache-Control", "no-cache");
+    set_resp_http_header(RESPONSE_OUTGOING, "Cache-Control", "private, no-cache, no-store, must-revalidate, max-age=0");
     hostcall_resp_get_body(&body, &body_len, upstream_resp);
     hostcall_resp_set_body(RESPONSE_OUTGOING, (const void *) body, body_len);
     free(body);

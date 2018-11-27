@@ -21,7 +21,7 @@
 /*
  * How long a successfully passed challenge is valid for
  */
-#define CHALLENGE_TTL 600
+#define CHALLENGE_TTL 100
 
 /*
  * Send the challenge when the counter for an IP address goes above this value.
