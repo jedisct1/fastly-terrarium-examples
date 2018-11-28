@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "http_hostcalls.h"
+
 // IMAGE_URI should be the address of a JPEG image
 
 #warning *** Change the URI below, then delete this line ***
@@ -29,5 +31,9 @@ void *guest_malloc(size_t size);
 void guest_free(void *ptr);
 
 int get_query_ival(unsigned int *value_p, const char *name);
+
+void set_resp_http_header(response_t handle, const char *name, const char *value);
+
+void set_nocache(response_t handle);
 
 #endif

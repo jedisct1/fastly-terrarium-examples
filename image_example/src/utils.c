@@ -13,7 +13,7 @@ void *guest_malloc(size_t size)
 
 void guest_free(void *ptr)
 {
-    return free(ptr);
+    free(ptr);
 }
 
 static int get_query_param(const char **value_p, size_t *value_len_p, const char *name)
@@ -83,4 +83,16 @@ int get_query_ival(unsigned int *value_p, const char *name)
     *value_p = (unsigned int) lvalue;
 
     return 0;
+}
+
+void set_resp_http_header(response_t handle, const char *name, const char *value)
+{
+    struct string_slice value_slice = { .ptr = value, .len = strlen(value) };
+    hostcall_resp_set_header(handle, name, strlen(name), &value_slice, 1U);
+}
+
+void set_nocache(response_t handle)
+{
+    set_resp_http_header(handle, "Cache-Control",
+                         "private, no-cache, no-store, must-revalidate, max-age=0");
 }

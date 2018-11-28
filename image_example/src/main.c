@@ -101,6 +101,7 @@ static void layer_merge(Image *out, const Image *in, unsigned int opacity)
 static int error(const char *msg)
 {
     hostcall_resp_set_response_code(RESPONSE_OUTGOING, 500);
+    set_nocache(RESPONSE_OUTGOING);
     hostcall_resp_set_body(RESPONSE_OUTGOING, msg, strlen(msg));
     return -1;
 }
@@ -213,6 +214,7 @@ void run(void)
         const char *help =
             "Usage: see the README.md file included with the source code of this example.";
         hostcall_resp_set_body(RESPONSE_OUTGOING, help, strlen(help));
+        set_nocache(RESPONSE_OUTGOING);
         hostcall_resp_set_response_code(RESPONSE_OUTGOING, 422);
         return;
     }
@@ -257,8 +259,7 @@ void run(void)
     image_free(&out);
 
     // Serve the new image
-    struct string_slice content_type_slice = STRING_SLICE("image/jpeg");
-    hostcall_resp_set_header(
-        RESPONSE_OUTGOING, "Content-Type", sizeof "Content-Type" - 1, &content_type_slice, 1);
+    set_resp_http_header(RESPONSE_OUTGOING, "Content-Type", "image/jpeg");
+    set_nocache(RESPONSE_OUTGOING);
     hostcall_resp_set_body(RESPONSE_OUTGOING, (const void *) recompressed_buf, recompressed_len);
 }
