@@ -800,10 +800,12 @@ select_scans (j_compress_ptr cinfo, int next_scan_number)
       }
     }
     
+#if 0
     /* free the memory allocated for buffers */
     for (i = 0; i < cinfo->num_scans; i++)
       if (master->scan_buffer[i])
         free(master->scan_buffer[i]);
+#endif
   }
 }
 
