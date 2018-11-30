@@ -174,7 +174,6 @@ static int jpeg_compress(uint8_t **jpeg_buf_p, size_t *jpeg_len_p, const Image *
     cinfo.err   = jpeg_std_error(&jerr);
     jpeg_create_compress(&cinfo);
     jpeg_mem_dest(&cinfo, jpeg_buf_p, &jpeg_len_ulong);
-    *jpeg_len_p            = (size_t) jpeg_len_ulong;
     cinfo.image_width      = image->width;
     cinfo.image_height     = image->height;
     cinfo.input_components = image->depth;
@@ -189,6 +188,7 @@ static int jpeg_compress(uint8_t **jpeg_buf_p, size_t *jpeg_len_p, const Image *
     }
     jpeg_finish_compress(&cinfo);
     jpeg_destroy_compress(&cinfo);
+    *jpeg_len_p = (size_t) jpeg_len_ulong;
 
     return 0;
 }
@@ -212,7 +212,8 @@ void run(void)
     get_query_ival(&opacity, "sharpening");
     if (new_width < 2 || new_height < 2 || opacity > 100) {
         const char *help =
-            "Usage: see the README.md file included with the source code of this example.";
+            "Usage: see the README.md file included with the source code of "
+            "this example.";
         hostcall_resp_set_body(RESPONSE_OUTGOING, help, strlen(help));
         set_nocache(RESPONSE_OUTGOING);
         hostcall_resp_set_response_code(RESPONSE_OUTGOING, 422);
