@@ -148,7 +148,9 @@ static int jpeg_decompress(Image *image, const uint8_t *jpeg_buf, size_t jpeg_le
         return error("Invalid JPEG file");
     }
     jpeg_start_decompress(&dinfo);
-    image_new(image, dinfo.output_width, dinfo.output_height, dinfo.output_components);
+    if (image_new(image, dinfo.output_width, dinfo.output_height, dinfo.output_components) != 0) {
+        return -1;
+    }
     while (dinfo.output_scanline < dinfo.output_height) {
         unsigned char *buffer_array;
         buffer_array = image->buf + dinfo.output_scanline * image->row_stride;
@@ -246,7 +248,9 @@ void run(void)
 
     // Apply the kernel
     Image out;
-    image_new(&out, resized.width, resized.height, resized.depth);
+    if (image_new(&out, resized.width, resized.height, resized.depth) != 0) {
+        return;
+    }
     convolution(&out, &resized);
     layer_merge(&out, &resized, opacity);
     image_free(&resized);
