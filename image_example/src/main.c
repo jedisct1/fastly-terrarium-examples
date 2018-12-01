@@ -224,8 +224,14 @@ void run(void)
 
     // Retrieve the image from the local cache, or fetch it if absent
     if (hostcall_kvstore_get(&jpeg_buf, &jpeg_len, CACHE_KEY, sizeof CACHE_KEY - 1) == 0) {
+#ifdef IMAGE_URI
         outgoing_req =
             hostcall_req_create("GET", sizeof "GET" - 1, IMAGE_URI, sizeof IMAGE_URI - 1);
+#else
+        char *image_uri = url_for_static_asset(LOCAL_IMAGE_URI);
+        outgoing_req = hostcall_req_create("GET", sizeof "GET" - 1, image_uri, strlen(image_uri));
+        free(image_uri);
+#endif
         jpeg_bin_resp = hostcall_req_send(outgoing_req);
         hostcall_resp_get_body(&jpeg_buf, &jpeg_len, jpeg_bin_resp);
         hostcall_kvstore_insert(CACHE_KEY, sizeof CACHE_KEY - 1, (const void *) jpeg_buf, jpeg_len);

@@ -6,10 +6,11 @@
 
 #include "http_hostcalls.h"
 
-// IMAGE_URI should be the address of a JPEG image
+#warning *** Change the URI below, then delete this line - It should be a JPEG image ***
+#warning *** If not defined, the local LOCAL_IMAGE_URI image will be loaded instead. ***
+// #define IMAGE_URI "https://example.com/image.jpg"
 
-#warning *** Change the URI below, then delete this line ***
-#define IMAGE_URI "https://example.com/image.jpg"
+#define LOCAL_IMAGE_URI "cat.jpg"
 
 // Do not change anything below
 
@@ -35,5 +36,7 @@ int get_query_ival(unsigned int *value_p, const char *name);
 void set_resp_http_header(response_t handle, const char *name, const char *value);
 
 void set_nocache(response_t handle);
+
+char *url_for_static_asset(const char *asset);
 
 #endif
