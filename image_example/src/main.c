@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "image.h"
-#include "mozjpeg/jpeglib.h"
+#include "jpeg/jpeglib.h"
 
 // Resize an image
 static void resize(Image *out, const Image *in)
