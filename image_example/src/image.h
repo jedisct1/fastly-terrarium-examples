@@ -6,16 +6,23 @@
 
 #include "http_hostcalls.h"
 
-#warning *** Change the URI below, then delete this line - It should be a JPEG image ***
-#warning *** If not defined, the local LOCAL_IMAGE_URI image will be loaded instead. ***
+// Change the URI below and uncomment the line - It should be the URI of a JPEG image.
+// If not defined, the local LOCAL_IMAGE_URI image (from the `assets` directory) will be loaded
+// instead.
+
 // #define IMAGE_URI "https://example.com/image.jpg"
 
 #define LOCAL_IMAGE_URI "cat.jpg"
 
-// Do not change anything below
+// --- Do not change anything below ---
 
+// Images are cached in the K/V store to reduce latency - This is the key used for caching.
 #define CACHE_KEY "image-demo-cached-image"
+
+// Resizing precision. Must be a power of 2.
 #define THETA 256
+
+// Maximum opacity of the sharpening layer.
 #define OPACITY_MAX 100
 
 typedef struct Image {

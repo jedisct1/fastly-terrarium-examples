@@ -9,9 +9,9 @@ It accepts HTTP queries with the following GET parameters:
 - `height`: height of the image to serve, in pixels
 - `sharpening`: opacity of the sharpening layer, `0` being transparent and `100` being completely opaque.
 
-The proxy will load a remote image, then resize, sharpen and recompress it on the fly according to these parameters.
+The proxy will load a remote image, then cache it, resize it, sharpen it and recompress it on the fly according to these parameters.
 
-This demo can only serve a single image, whose URI is defined in the `image.h` file. The `IMAGE_URI` value in that file *must* be changed prior to running this example.
+This demo can only serve a single image, whose URI is defined in the `image.h` file.
 
 Image manipulations may require a lot of memory. If you run out of memory, try a smaller image.
 
