@@ -214,8 +214,25 @@ void run(void)
     get_query_ival(&opacity, "sharpening");
     if (new_width < 2 || new_height < 2 || opacity > 100) {
         const char *help =
-            "Usage: see the README.md file included with the source code of "
-            "this example.";
+            "<!doctype html><html><head><meta charset=utf-8><title>Terrarium image processing "
+            "example</title></head><body>"
+            "<h1>Terrarium image processing example</h1>"
+            "<p>An image is retrieved from a remote URL, decompressed, resized, sharpened and "
+            "recompressed on the fly.</p>"
+            "<p>The image URL can be changed in the <code>image.h</code> header file.<p>"
+            "<p>HTTP query parameters affecting the returned images are: <code>width</code> "
+            "(pixels), "
+            "<code>height</code> (pixels) and <code>sharpening</code> (0=no sharpening, 100=max "
+            "sharpening).</p>"
+            "<p>Example of dynamically generated image URLs:</p>"
+            "<ul>"
+            "<li><a href='/?width=640&height=360'>640x360, no sharpening</a>"
+            "<li><a href='/?width=640&height=360&sharpening=25'>640x360, 25% sharpening</a>"
+            "<li><a href='/?width=1280&height=720&sharpening=20'>1280x720, 20% sharpening</a>"
+            "<li><a href='/?width=320&height=240&sharpening=10'>320x240, 10% sharpening</a>"
+            "</ul>"
+            "</body></html>";
+        set_resp_http_header(RESPONSE_OUTGOING, "Content-Type", "text/html");
         hostcall_resp_set_body(RESPONSE_OUTGOING, help, strlen(help));
         set_nocache(RESPONSE_OUTGOING);
         hostcall_resp_set_response_code(RESPONSE_OUTGOING, 422);
