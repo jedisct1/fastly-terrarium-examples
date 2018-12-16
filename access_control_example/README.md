@@ -24,7 +24,9 @@ The protocol assumes that the client and the server communicate over a secure ch
 - The server checks that `username` hasn't already been registered, and stores `(username, pk, salt)`.
 
 ```text
-(username, pk, salt) -> {server}
+{server}                                                                  {client}
+
+(username, pk, salt) ---------------------------------------------------->
 ```
 
 ### User authentication
@@ -45,14 +47,18 @@ The protocol assumes that the client and the server communicate over a secure ch
 - The server replaces the stored `salt` value with `salt'` and `pk` with `pk'`.
 
 ```text
-username -> {server}
-                                                    {client} <- (salt, nonce)
+{server}                                                                  {client}
+
+username ---------------------------------------------------------------->
+
+        <----------------------------------------------------------- (salt, nonce)
+
 (username, salt', pk',
   S(sk, (domain || username ||
-         nonce || salt' || pk'))) -> {server}
+        nonce || salt' || pk'))) ---------------------------------------->
 
-                                    {client} <- V(pk, (domain || username ||
-                                                       nonce || salt' || pk'))
+        <------------------------------------------ V(pk, (domain || username ||
+                                                           nonce || salt' || pk'))
 ```
 
 ## Code overview
