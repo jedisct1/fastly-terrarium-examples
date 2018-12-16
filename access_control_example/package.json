@@ -1,0 +1,11 @@
+{
+    "name": "@fastly/assemblyscript_guest_app",
+    "version": "1.0.0",
+    "scripts": {
+      "asbuild:optimized": "asc assembly/utils.ts assembly/crypto.ts assembly/index.ts assembly/precomp.ts -b build/optimized.wasm -t build/optimized.wat --noDebug --validate -O3 --importMemory",
+      "asbuild": "npm run asbuild:optimized"
+    },
+    "devDependencies": {
+      "assemblyscript": "github:AssemblyScript/assemblyscript"
+    }
+}

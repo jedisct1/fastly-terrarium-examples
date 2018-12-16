@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset=utf-8>
+    <link href="styles.css" rel="stylesheet">
+</head>
+
+<body>
+    <section class="loading">
+        <h1>Loading...</h1>
+    </section>
+    <section id="login" style="display:none">
+        <h1>Terrarium access control example - Login</h1>
+        <form class="login" action="" method="post">
+            <div><label for="username">Username</label>
+                <input type="text" name="username" class="username"></div>
+            <div><label for="password">Password</label>
+                <input type="password" name="password" class="password"></div>
+
+            <div class="actions">
+                <input type="submit" name="login" value="Login">
+            </div>
+
+            <div class="error" style="display:none">
+            </div>
+        </form>
+
+        <div class="account">
+            <p><a href="">Signup</a></p>
+        </div>
+    </section>
+    <section id="signup" style="display:none">
+        <h1>Terrarium access control example - Signup</h1>
+        <form class="login" action="" method="post">
+            <div><label for="username">Username</label>
+                <input type="text" name="username" class="username"></div>
+            <div><label for="password">Password</label>
+                <input type="password" name="password" class="password"></div>
+
+            <div class="actions">
+                <input type="submit" name="signup" value="Register">
+            </div>
+
+            <div class="error" style="display:none">
+            </div>
+        </form>
+
+        <div class="account">
+            <p><a href="">Login</a></p>
+        </div>
+    </section>
+    <section id="loggedin" style="display:none">
+        <h1>Terrarium access control example - You're in!</h1>
+    </section>
+
+    <script src="acl.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,130 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: #fff;
+    padding-top: 20%;
+    padding: 0;
+    max-width: 800px;
+    margin: auto;
+}
+
+section {
+    padding: 0;
+    height: 100vh;
+    display: grid;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    grid-template-columns: 80%;
+    align-content: center;
+    align-items: stretch;
+}
+
+h1,
+.login,
+.account,
+.contact {
+    margin: 0;
+    width: 80%;
+}
+
+.account {
+    font-size: 150%;
+}
+
+@media (min-width: 650px) {
+    body {
+        grid-template-columns: repeat(2, minmax(150px, 30%));
+    }
+    h1,
+    .login {
+        grid-column-end: span 2;
+        width: auto;
+    }
+    .login>div {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        align-items: center;
+    }
+    .login>div.actions {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+    .account {
+        width: auto;
+        justify-self: end;
+        grid-column: 2;
+    }
+    input[type="submit"] {
+        grid-column: 3;
+    }
+}
+
+h1 {
+    background-color: rgba(191, 216, 227, .8);
+    border-top-right-radius: 5px;
+    border-top-left-radius: 5px;
+    padding: 10px;
+    font-size: 24px;
+    line-height: 1.4;
+}
+
+.login {
+    background-color: rgba(191, 216, 227, .4);
+    border: 1px solid rgba(191, 216, 227, .8);
+    border-bottom-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.login>div {
+    padding: 5px 0;
+}
+
+input[type="submit"] {
+    border: 1px solid rgba(191, 216, 227, .8);
+    border-radius: 5px;
+    color: #fff;
+    background-color: rgb(54, 134, 169);
+    font-size: 110%;
+}
+
+input[type="text"],
+input[type="password"] {
+    border: 1px solid rgba(191, 216, 227, .8);
+    padding: 5px;
+    border-radius: 5px;
+    font-size: 110%;
+    width: 100%;
+}
+
+#signup h1,
+#signup input[type="text"],
+#signup input[type="password"] {
+    background-color: rgba(216, 191, 227, .8);
+}
+
+#signup input[type="submit"] {
+    border: 1px solid rgba(216, 191, 227, .8);
+    background-color: rgb(134, 54, 169);
+}
+
+#signup .login {
+    background-color: rgba(216, 191, 227, .4);
+    border: 1px solid rgba(219, 191, 227, .8);
+}
+
+input:disabled {
+    opacity: 0.4;
+}
+
+.error {
+    font-size: 120%;
+    font-weight: bold;
+    color: #f00;
+    border: 1px solid #c00;
+    text-align: center;
+    border-radius: 5px;
+}
