@@ -9,7 +9,7 @@ A web form allows users to register and to securely sign in with a login and pas
 - User authentication can be done at the edge, so that origins only receive traffic from authenticated users
 - The exact same WebAssembly code can be shared by code running server-side (Terrarium), and client-side (a web browser)
 - How to use AssemblyScript and the Terrarium guest API
-- How to share data between AssemblyScript, WebAssembly and JavaScript
+- How to share data between AssemblyScript, WebAssembly and JavaScript.
 
 ## High-level protocol overview
 
@@ -60,6 +60,8 @@ username ---------------------------------------------------------------->
         <------------------------------------------ V(pk, (domain || username ||
                                                            nonce || salt' || pk'))
 ```
+
+The salt can be kept secret using a slight variation of this protocol, where a second salt is computed from the server-stored salt and the password using an Oblivious PRF, as proposed in the [OPAQUE](https://tools.ietf.org/html/draft-krawczyk-cfrg-opaque-00) protocol.
 
 ## Code overview
 
