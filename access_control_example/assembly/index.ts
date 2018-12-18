@@ -163,7 +163,7 @@ function login(req: Request): Response {
     u8_array_copy(challenge.subarray(domain_bin.length + username_bin.length + nonce.length), salt2);
     u8_array_copy(challenge.subarray(domain_bin.length + username_bin.length + nonce.length + salt2.length), pk2);
 
-    let verified = signVerify(challenge, signature, pk);
+    let verified = signVerify(signature, challenge, pk);
     if (!verified) {
         response.body_string = "Incorrect (login, password) pair";
         response.status = 401;

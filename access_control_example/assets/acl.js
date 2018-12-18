@@ -215,7 +215,7 @@ function loginInit() {
             const z = new Uint8Array(wasm.SIGN_RANDBYTES);
             crypto.getRandomValues(z);
             const signature_wasm = wasm.sign(wasm.newArray(challenge), keypair_wasm, z);
-            if (wasm.signVerify(wasm.newArray(challenge), signature_wasm, pkWasm) != true) {
+            if (wasm.signVerify(signature_wasm, wasm.newArray(challenge), pkWasm) != true) {
                 throw "Signature doesn't verify";
             }
 

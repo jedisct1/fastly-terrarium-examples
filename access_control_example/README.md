@@ -62,6 +62,7 @@ username ---------------------------------------------------------------->
 ```
 
 The salt can be kept secret using a slight variation of this protocol, where a second salt is computed from the server-stored salt and the password using an Oblivious PRF, as proposed in the [OPAQUE](https://tools.ietf.org/html/draft-krawczyk-cfrg-opaque-00) protocol.
+The included crypto library implements the required primitives to do so.
 
 ## Code overview
 
