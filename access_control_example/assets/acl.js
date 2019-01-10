@@ -639,6 +639,10 @@ const loader = (function() {
         }
     };
     wasm = loader.instantiateBuffer(await (await fetch("optimized.wasm")).arrayBuffer(), imports);
+    if (self !== top) {
+        top.location = self.location;
+        return;
+    }
     hide(".loading");
     login();
 })();
