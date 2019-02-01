@@ -38,11 +38,11 @@ export { memory };
     return (x & y) ^ (x & z) ^ (y & z);
 }
 
-@inline function load64(x: Uint8Array, offset: isize): u64 {
+function load64(x: Uint8Array, offset: isize): u64 {
     return LOAD<u64>(x.buffer, 0, offset);
 }
 
-@inline function store64(x: Uint8Array, offset: isize, u: u64): void {
+function store64(x: Uint8Array, offset: isize, u: u64): void {
     STORE<u64>(x.buffer, 0, u, offset);
 }
 
@@ -257,18 +257,16 @@ function scModL(r: Uint8Array, x: Int64Array): void {
         let k = i - 12;
         let xi = x[i];
         for (let j = i - 32; j < k; ++j) {
-            let xj = x[j];
-            xj += carry - 16 * xi * _L[j - (i - 32)];
+            let xj = x[j] + carry - 16 * xi * _L[j - (i - 32)];
             carry = (xj + 128) >> 8;
-            x[j] -= carry * 256;
+            x[j] = xj - carry * 256;
         }
         x[k] += carry;
         x[i] = 0;
     }
     carry = 0;
     for (let j = 0; j < 32; ++j) {
-        let xj = x[j];
-        xj += carry - (x[31] >> 4) * _L[j];
+        let xj = x[j] + carry - (x[31] >> 4) * _L[j];
         carry = xj >> 8;
         x[j] = xj & 255;
     }
@@ -757,7 +755,7 @@ function scalarmultBase(s: Uint8Array, p: Int64Array[]): void {
         let precomp = precomp_base[i];
         q[0] = fe25519(precomp[0]);
         q[1] = fe25519(precomp[1]);
-        q[3] = fe25519(precomp[3]);
+        q[3] = fe25519(precomp[2]);
         geCopy(t, p);
         add(t, q);
         cmov(p, t, b);
@@ -1180,13 +1178,13 @@ function _signVerifyDetached(sig: Uint8Array, m: Uint8Array, pk: Uint8Array): bo
 /**
  * Compute s mod the order of the prime order group
  *
- * @param s Scalar (between 40 and 64 bytes)
+ * @param s Scalar (between 32 and 64 bytes)
  * @returns `s` reduced mod `L`
  */
 @global export function faScalarReduce(s: Uint8Array): Uint8Array {
     let r = new Uint8Array(32);
     let s_ = new Uint8Array(64);
-    if (s_.length < 40 || s_.length > 64) {
+    if (s_.length < 32 || s_.length > 64) {
         throw new Error('faScalarReduce() argument should be between 40 and 64 bytes long');
     }
     setU8(s_, s);
