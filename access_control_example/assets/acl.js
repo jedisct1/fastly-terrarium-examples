@@ -612,11 +612,14 @@ const loader = (function() {
     exports.instantiate = instantiate;
 
     /** Instantiates an AssemblyScript module from a buffer using the specified imports. */
-    function instantiateBuffer(buffer, imports) {
-        return instantiate(new WebAssembly.Module(buffer), imports);
+    async function instantiateBufferAsync(buffer, imports) {
+        return postInstantiate(
+            preInstantiate(imports || (imports = {})),
+            (await WebAssembly.instantiate(buffer, imports)).instance
+        );
     }
 
-    exports.instantiateBuffer = instantiateBuffer;
+    exports.instantiateBufferAsync = instantiateBufferAsync;
 
     /** Instantiates an AssemblyScript module from a response using the specified imports. */
     async function instantiateStreaming(response, imports) {
@@ -725,7 +728,7 @@ const loader = (function() {
             })
         }
     };
-    wasm = loader.instantiateBuffer(await (await fetch("optimized.wasm")).arrayBuffer(), imports);
+    wasm = await loader.instantiateBufferAsync(await (await fetch("optimized.wasm")).arrayBuffer(), imports);
     if (self !== top) {
         top.location = self.location;
         return;
