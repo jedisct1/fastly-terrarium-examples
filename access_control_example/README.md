@@ -129,6 +129,13 @@ It then constructs the challenge `(domain || username || nonce)` and verifies th
 
 Precompiled WebAssembly code for `assembly/crypto.ts`, so that it can be loaded as a module by the JavaScript code.
 
+That file can be recreated using the AssemblyScript compiler with the following command:
+
+```sh
+asc assembly/crypto.ts assembly/precomp.ts \
+  -b assets/optimized.wasm --validate -O3 --importMemory
+```
+
 ### assets/acl.js
 
 A simple web application showing a client-side implementation of the protocol.
