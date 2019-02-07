@@ -24,15 +24,15 @@ function clearError(sel) {
     const node = document.querySelector(sel);
     node.style.display = "none";
     if (node.firstChild) {
-        node.removeChild(node.firstChild)
-    };
+        node.removeChild(node.firstChild);
+    }
 }
 
 function error(sel, s) {
     const node = document.querySelector(sel);
     if (node.firstChild) {
-        node.removeChild(node.firstChild)
-    };
+        node.removeChild(node.firstChild);
+    }
     node.appendChild(document.createTextNode(s));
     node.style.display = "block";
 }
@@ -66,6 +66,52 @@ function bytesToStr(bytes) {
     }
 }
 
+// Compute `(B^H(domain || username || password)) ^ (1/r)`
+
+function createBlindAuthInfo(username_bin, password_bin) {
+    let r_ = new Uint8Array(64);
+    crypto.getRandomValues(r_);
+    const r_wasm = wasm.faScalarReduce(wasm.newArray(r_));
+    const r = wasm.getArray(Uint8Array, r_wasm);
+
+    const z_ = [];
+    z_.push(...strToBytes(DOMAIN));
+    z_.push(...username_bin);
+    z_.push(...password_bin);
+    const z_wasm = wasm.newArray(new Uint8Array(z_));
+    const zh = wasm.getArray(Uint8Array, wasm.hash(z_wasm));
+    const zh_scalar_wasm = wasm.newArray(zh.subarray(0, wasm.FA_SCALARBYTES));
+
+    const r_inv_wasm = wasm.faScalarInverse(r_wasm);
+    const px_wasm = wasm.faScalarBase(zh_scalar_wasm);
+    const blind_auth_info = wasm.getArray(Uint8Array, wasm.faScalarMult(r_inv_wasm, px_wasm));
+
+    return {
+        r,
+        blind_auth_info,
+    };
+}
+
+// Compute `seed = KDF(password, salt)` and return a key pair derived
+// from `seed`.
+
+async function getKeypairForSaltAndPassword(salt, password_bin) {
+    const password_key = await crypto.subtle.importKey("raw", password_bin, "PBKDF2", false, ["deriveBits"]);
+    const kdf_params = {
+        name: "PBKDF2",
+        hash: "SHA-512",
+        salt,
+        iterations: KDF_ITERATIONS
+    };
+    const seed = new Uint8Array(await crypto.subtle.deriveBits(kdf_params, password_key, 8 * wasm.SIGN_SEEDBYTES));
+    let seed_wasm = wasm.newArray(seed);
+    const keypair_wasm = wasm.signKeypairFromSeed(seed_wasm);
+
+    return wasm.getArray(Uint8Array, keypair_wasm);
+}
+
+// Signup page
+
 function signupInit() {
     const login_link = document.querySelector("#signup a");
     login_link.addEventListener("click", (e) => {
@@ -76,6 +122,7 @@ function signupInit() {
     });
 
     const node_signup_form = document.querySelector("#signup form");
+
     node_signup_form.addEventListener("submit", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -89,27 +136,55 @@ function signupInit() {
 
         const username_bin = strToBytes(username);
         const password_bin = strToBytes(password);
-        const salt = new Uint8Array(32);
-        crypto.getRandomValues(salt);
+        const r_and_blind_auth_info = createBlindAuthInfo(username_bin, password_bin);
+
+        // Get the blind salt from the server, and compute the actual salt
+
+        const salt_ = (async() => {
+            let username_and_blind_auth_info = new Uint8Array(username_bin.length + r_and_blind_auth_info.blind_auth_info.length);
+            username_and_blind_auth_info.set(username_bin);
+            username_and_blind_auth_info.set(r_and_blind_auth_info.blind_auth_info, username_bin.length);
+            const response = await (await fetch("signup-get-blind-salt", {
+                body: username_and_blind_auth_info,
+                method: "POST",
+                mode: "no-cors"
+            }));
+            if (response.status === 403) {
+                error("#signup .error", "An account with that name already exists");
+                enable("#signup input[type=submit]");
+                return;
+            }
+            if (!response.ok) {
+                error("#signup .error", "Internal error");
+                enable("#signup input[type=submit]");
+                return;
+            }
+            const blind_salt = new Uint8Array(await response.arrayBuffer());
+            let salt_wasm = wasm.faScalarMult(wasm.newArray(r_and_blind_auth_info.r), wasm.newArray(blind_salt));
+            if (!salt_wasm) {
+                error("#signup .error", "Unexpected response from the server (weak salt)");
+                enable("#signup input[type=submit]");
+                return;
+            }
+            return wasm.getArray(Uint8Array, salt_wasm);
+        })();
+
+        // Register the public key
+
         (async() => {
-            const password_key = await crypto.subtle.importKey("raw", password_bin, "PBKDF2", false, ["deriveBits"]);
-            const kdfParams = {
-                name: "PBKDF2",
-                hash: "SHA-512",
-                salt,
-                iterations: KDF_ITERATIONS
-            };
-            const seed = new Uint8Array(await crypto.subtle.deriveBits(kdfParams, password_key, 8 * wasm.SIGN_SEEDBYTES));
-            let seed_wasm = wasm.newArray(seed);
-            const keypair_wasm = wasm.signKeypairFromSeed(seed_wasm);
+            const salt = await salt_;
+            if (!salt) {
+                return;
+            }
+            const keypair = await getKeypairForSaltAndPassword(salt, password_bin);
+            const keypair_wasm = wasm.newArray(keypair);
             const pk_wasm = wasm.signPublicKey(keypair_wasm);
             const pk = wasm.getArray(Uint8Array, pk_wasm);
-            const username_and_pk_and_salt = new Uint8Array(username_bin.length + pk.length + salt.length);
-            username_and_pk_and_salt.set(username_bin);
-            username_and_pk_and_salt.set(pk, username_bin.length);
-            username_and_pk_and_salt.set(salt, username_bin.length + pk.length);
+            const username_and_pk = new Uint8Array(username_bin.length + pk.length);
+            username_and_pk.set(username_bin);
+            username_and_pk.set(pk, username_bin.length);
             const response = await (await fetch("signup", {
-                body: username_and_pk_and_salt,
+                body: username_and_pk,
                 method: "POST",
                 mode: "no-cors"
             }));
@@ -139,6 +214,8 @@ function signup() {
     document.querySelector("#signup .username").focus();
 }
 
+// Login page
+
 function loginInit() {
     const signup_link = document.querySelector("#login a");
     signup_link.addEventListener("click", (e) => {
@@ -149,6 +226,7 @@ function loginInit() {
     });
 
     const node_login_form = document.querySelector("#login form");
+
     node_login_form.addEventListener("submit", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -162,71 +240,77 @@ function loginInit() {
 
         const username_bin = strToBytes(username);
         const password_bin = strToBytes(password);
+        const r_and_blind_auth_info = createBlindAuthInfo(username_bin, password_bin);
 
-        async function getKeypairForSaltAndPassword(salt) {
-            const password_key = await crypto.subtle.importKey("raw", password_bin, "PBKDF2", false, ["deriveBits"]);
-            const kdf_params = {
-                name: "PBKDF2",
-                hash: "SHA-512",
-                salt,
-                iterations: KDF_ITERATIONS
-            };
-            const seed = new Uint8Array(await crypto.subtle.deriveBits(kdf_params, password_key, 8 * wasm.SIGN_SEEDBYTES));
+        // Get the blind salt and nonce from the server, and compute the actual salt
 
-            let seed_wasm = wasm.newArray(seed);
-            const keypair_wasm = wasm.signKeypairFromSeed(seed_wasm);
-
-            return wasm.getArray(Uint8Array, keypair_wasm);
-        }
-
-        (async() => {
-            const salt_and_nonce = new Uint8Array(await (await fetch("login-get-salt-and-nonce", {
-                body: username_bin,
+        const salt_and_nonce_ = (async() => {
+            let username_and_blind_auth_info = new Uint8Array(username_bin.length + r_and_blind_auth_info.blind_auth_info.length);
+            username_and_blind_auth_info.set(username_bin);
+            username_and_blind_auth_info.set(r_and_blind_auth_info.blind_auth_info, username_bin.length);
+            const response = await fetch("login-get-blind-salt-and-nonce", {
+                body: username_and_blind_auth_info,
                 method: "POST",
                 mode: "no-cors"
-            })).arrayBuffer());
-            if (salt_and_nonce.length !== 32 + 32) {
+            });
+            if (!response.ok) {
                 enable("#login input[type=submit]");
-                throw "Unexpected response";
+                error("#login .error", "Unexpected response from the server");
                 return;
             }
-            const salt = salt_and_nonce.subarray(0, 32);
-            const nonce = salt_and_nonce.subarray(32);
+            const blind_salt_and_nonce = new Uint8Array(await response.arrayBuffer());
+            if (blind_salt_and_nonce.length !== wasm.FA_POINTBYTES + 32) {
+                enable("#login input[type=submit]");
+                error("#login .error", "Unexpected response from the server (salt)");
+                return;
+            }
+            const blind_salt = blind_salt_and_nonce.subarray(0, wasm.FA_POINTBYTES);
+            const nonce = blind_salt_and_nonce.subarray(wasm.FA_POINTBYTES);
 
-            const salt2 = new Uint8Array(32);
-            crypto.getRandomValues(salt2);
+            let salt_wasm = wasm.faScalarMult(wasm.newArray(r_and_blind_auth_info.r), wasm.newArray(blind_salt));
+            if (!salt_wasm) {
+                enable("#login input[type=submit]");
+                error("#login .error", "Unexpected response from the server (weak blind salt)");
+                return;
+            }
+            return {
+                salt: wasm.getArray(Uint8Array, salt_wasm),
+                nonce
+            };
+        })();
 
-            const keypair = await getKeypairForSaltAndPassword(salt);
+        // Sign the challenge `domain || username || nonce` to log in
+
+        (async() => {
+            const salt_and_nonce = await salt_and_nonce_;
+            if (!salt_and_nonce) {
+                return;
+            }
+            const salt = salt_and_nonce.salt;
+            const nonce = salt_and_nonce.nonce;
+            const keypair = await getKeypairForSaltAndPassword(salt, password_bin);
             const keypair_wasm = wasm.newArray(keypair);
-            const pkWasm = wasm.signPublicKey(keypair_wasm);
-            const keypair2 = await getKeypairForSaltAndPassword(salt2);
-            const keypair2_wasm = wasm.newArray(keypair2);
-            const pk2_wasm = wasm.signPublicKey(keypair2_wasm);
-            const pk2 = wasm.getArray(Uint8Array, pk2_wasm);
+            const pk_wasm = wasm.signPublicKey(keypair_wasm);
 
             const challenge_ = [];
             challenge_.push(...strToBytes(DOMAIN));
             challenge_.push(...username_bin);
             challenge_.push(...nonce);
-            challenge_.push(...salt2);
-            challenge_.push(...pk2);
             const challenge = new Uint8Array(challenge_);
 
             const z = new Uint8Array(wasm.SIGN_RANDBYTES);
             crypto.getRandomValues(z);
             const signature_wasm = wasm.sign(wasm.newArray(challenge), keypair_wasm, z);
-            if (wasm.signVerify(signature_wasm, wasm.newArray(challenge), pkWasm) != true) {
+            if (wasm.signVerify(signature_wasm, wasm.newArray(challenge), pk_wasm) != true) {
                 throw "Signature doesn't verify";
             }
 
             const signature = wasm.getArray(Uint8Array, signature_wasm);
-            const username_and_salt2_and_pk2_and_signature = new Uint8Array(username_bin.length + salt2.length + pk2.length + wasm.SIGN_BYTES);
-            username_and_salt2_and_pk2_and_signature.set(username_bin);
-            username_and_salt2_and_pk2_and_signature.set(salt2, username_bin.length);
-            username_and_salt2_and_pk2_and_signature.set(pk2, username_bin.length + salt2.length);
-            username_and_salt2_and_pk2_and_signature.set(signature, username_bin.length + salt2.length + pk2.length);
+            const username_and_signature = new Uint8Array(username_bin.length + wasm.SIGN_BYTES);
+            username_and_signature.set(username_bin);
+            username_and_signature.set(signature, username_bin.length);
             const response = await (await fetch("login", {
-                body: username_and_salt2_and_pk2_and_signature,
+                body: username_and_signature,
                 method: "POST",
                 mode: "no-cors",
             }));
@@ -239,10 +323,10 @@ function loginInit() {
                 error("#login .error", "Internal error");
                 return;
             }
-            console.log("Logged in!");
             hide("#login");
             show("#loggedin");
         })();
+
         return false;
     }, false);
 }
@@ -259,6 +343,8 @@ function login() {
 }
 
 let wasm = null;
+
+// Frontend code ends here. What follows is the AssemblyScript's standard loader
 
 const loader = (function() {
     let exports = {};
@@ -297,7 +383,6 @@ const loader = (function() {
             }
             throw Error("abort: " + getString(memory, mesg) + " at " + getString(memory, file) + ":" + line + ":" + colm);
         }
-
         return baseModule;
     }
 
@@ -627,6 +712,8 @@ const loader = (function() {
 
     return exports;
 }());
+
+// Entry point
 
 (async() => {
     const heap_size = 65536 * 4096;

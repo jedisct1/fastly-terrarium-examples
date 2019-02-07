@@ -6,7 +6,7 @@ import { rng_next_u64, KVStore, bytes_to_string, Response } from "./http_guest";
  * @param src source
  * @param offset destination offset (optional)
  */
-export function u8_array_copy(dst: Uint8Array, src: Uint8Array, offset: isize = 0): void {
+export function u8ArrayCopy(dst: Uint8Array, src: Uint8Array, offset: isize = 0): void {
     let len = src.length;
     for (let i = 0; i < len; i++) {
         dst[offset + i] = src[i];
@@ -18,7 +18,7 @@ export function u8_array_copy(dst: Uint8Array, src: Uint8Array, offset: isize = 
  * @param g generic array
  * @returns typed array
  */
-export function generic_array_to_u8_array(g: Array<u8>): Uint8Array {
+export function genericArrayToU8Array(g: Array<u8>): Uint8Array {
     let len = g.length;
     let ret = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
@@ -32,7 +32,7 @@ export function generic_array_to_u8_array(g: Array<u8>): Uint8Array {
  * @param a typed array
  * @returns generic array
  */
-export function u8_array_to_generic_array(a: Uint8Array): Array<u8> {
+export function u8ArrayToGenericArray(a: Uint8Array): Array<u8> {
     let len = a.length;
     let ret = new Array<u8>();
     for (let i = 0; i < len; i++) {
@@ -46,7 +46,7 @@ export function u8_array_to_generic_array(a: Uint8Array): Array<u8> {
  * @param bytes byte sequence
  * @returns decoded sequence
  */
-export function bytes_decode(bytes: Uint8Array): Uint8Array {
+export function bytesDecode(bytes: Uint8Array): Uint8Array {
     let remaining = bytes.length;
     if (remaining < 2) {
         throw "invalid length";
@@ -63,7 +63,7 @@ export function bytes_decode(bytes: Uint8Array): Uint8Array {
  * @param bytes byte sequence
  * @returns length-prefixed byte sequence
  */
-export function bytes_encode(bytes: Uint8Array): Uint8Array {
+export function bytesEncode(bytes: Uint8Array): Uint8Array {
     let len = bytes.length;
     let ret = new Uint8Array(2 + len);
     ret[0] = len as u8;
@@ -79,14 +79,14 @@ export function bytes_encode(bytes: Uint8Array): Uint8Array {
  * @param str string
  * @returns length-prefixed string
  */
-export function str_encode(str: string): Uint8Array {
+export function strEncode(str: string): Uint8Array {
     let bytes_pnt = str.toUTF8();
     let bytes_len = str.lengthUTF8 - 1;
     let bytes = new Uint8Array(bytes_len);
     for (let i = 0; i < bytes_len; i++) {
         bytes[i] = load<u8>(bytes_pnt + i);
     }
-    return bytes_encode(bytes);
+    return bytesEncode(bytes);
 }
 
 /**
@@ -94,7 +94,7 @@ export function str_encode(str: string): Uint8Array {
  * @param bytes encoded sequence
  * @returns subarray
  */
-export function bytes_next(bytes: Uint8Array): Uint8Array {
+export function bytesNext(bytes: Uint8Array): Uint8Array {
     let blen = (bytes[0] | (bytes[1] << 8)) as i32;
     return bytes.subarray(2 + blen);
 }
@@ -103,7 +103,7 @@ export function bytes_next(bytes: Uint8Array): Uint8Array {
  * Fill an array with random bits
  * @param v array
  */
-export function get_random(v: Uint8Array): void {
+export function getRandom(v: Uint8Array): void {
     let len = v.length;
     for (let i = 0; i < len; i++) {
         v[i] = rng_next_u64() as u8;
@@ -116,7 +116,7 @@ let kvs: KVStore = null;
  * Initialize the KV store wrappers
  * @param _kvs KVStore object
  */
-export function kvs_init(_kvs: KVStore): void {
+export function kvsInit(_kvs: KVStore): void {
     kvs = _kvs;
 }
 
@@ -126,11 +126,11 @@ export function kvs_init(_kvs: KVStore): void {
  * @param b key name
  * @returns key
  */
-export function key_for(context: string, b: Uint8Array): string {
-    if (!is_utf8(b)) {
+export function keyFor(context: string, b: Uint8Array): string {
+    if (!isUtf8(b)) {
         throw "Key must be a valid UTF-8 string";
     }
-    let b_str = bytes_to_string(u8_array_to_generic_array(b));
+    let b_str = bytes_to_string(u8ArrayToGenericArray(b));
 
     return context + "|" + b_str;
 }
@@ -140,12 +140,12 @@ export function key_for(context: string, b: Uint8Array): string {
  * @param key key
  * @returns value or null
  */
-export function kvs_get(key: string): Uint8Array {
+export function kvsGet(key: string): Uint8Array {
     let value = kvs.get(key);
     if (value === null) {
         return null;
     }
-    return generic_array_to_u8_array(value);
+    return genericArrayToU8Array(value);
 }
 
 /**
@@ -154,8 +154,8 @@ export function kvs_get(key: string): Uint8Array {
  * @param value value
  * @returns inserted (`true`) or replaced (`false`)
  */
-export function kvs_insert(key: string, value: Uint8Array): bool {
-    return kvs.insert(key, u8_array_to_generic_array(value));
+export function kvsInsert(key: string, value: Uint8Array): bool {
+    return kvs.insert(key, u8ArrayToGenericArray(value));
 }
 
 /**
@@ -164,8 +164,16 @@ export function kvs_insert(key: string, value: Uint8Array): bool {
  * @param value value
  * @returns inserted (`true`) or ignored (`false`)
  */
-export function kvs_upsert(key: string, value: Uint8Array): bool {
-    return kvs.upsert(key, u8_array_to_generic_array(value));
+export function kvsUpsert(key: string, value: Uint8Array): bool {
+    return kvs.upsert(key, u8ArrayToGenericArray(value));
+}
+
+/**
+ * Remove a value from the KV store
+ * @param key key
+ */
+export function kvsDelete(key: string): bool {
+    return kvs.remove(key)
 }
 
 /**
@@ -200,7 +208,7 @@ export function store64(x: Uint8Array, offset: isize, u: u64): void {
  * @param s array
  * @returns `true` on success
  */
-export function is_utf8(s: Uint8Array): bool {
+export function isUtf8(s: Uint8Array): bool {
     var len = s.length;
     for (let i = 0; i < len;) {
         let c = s[i++];

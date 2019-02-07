@@ -17,52 +17,46 @@ The protocol assumes that the client and the server communicate over a secure ch
 
 ### User registration
 
-- The client picks a `salt` indistinguishable from random
+- The client computes `H(domain, username, password)` and maps this hash to an elliptic curve point `px`
+- Using an oblivious pseudorandom function, a deterministic `salt` is computed without revealing `px` to the server
 - The client derives a secret scalar `sk` from the password and `salt` using a key stretching function
-- The client computes a public key `pk` using the secret scalar `sk`
-- The client sends `(username, pk, salt)` to the server
-- The server checks that `username` hasn't already been registered, and stores `(username, pk, salt)`.
+- The client computes a public key `pk` from the secret scalar `sk`
+- The client sends `(username, pk)` to the server
+- The server checks that `username` hasn't already been registered, and stores `(username, pk)`.
 
 ```text
 {server}                                                                  {client}
 
-(username, pk, salt) ---------------------------------------------------->
+(username, blind(px)) --------------------------------------------------->
+
+        <------------------------------------------------------------- blind(salt)
+
+(username, pk) ---------------------------------------------------------->
 ```
 
 ### User authentication
 
-- The clients sends `username` to the server
-- The server picks a `nonce` indistinguishable from random
-- If `username` is present in the database, the server retrieves the corresponding `salt`
-- If `username` is not present in the database, the server computes `salt = H(hk, username)` with `H` being a keyed hash function and `hk` a long-term secret
-- The server sends `(salt, nonce)` to the client
-- The client derives a secret scalar from the password and `salt` using a key stretching function: `sk = KDF(password, salt)`
-- The client picks a `salt'` indistinguishable from random
-- The client derives a second secret scalar from the password and `salt'` using a key stretching function: `sk' = KDF(password, salt')`
-- The client computes a second public key `pk'` using the secret scalar `sk'`
-- The client computes a signature `s = S(sk, domain || username || nonce || salt' || pk')`, with `domain` being a constant, application-specific string
-- The client sends `(username, salt', pk', s)` to the server
-- The server retrieves the `nonce` previously sent, as well as the stored `salt` and `pk` values for the given user
-- The server verifies that `s` is a valid signature for `(domain || username || nonce || salt' || pk')` using the public key `pk` and rejects the authentication attempt if it doesn't verify
-- The server replaces the stored `salt` value with `salt'` and `pk` with `pk'`.
+- The client computes `H(domain, username, password)` and maps this hash to an elliptic curve point `px`
+- Using an oblivious pseudorandom function, a deterministic `salt` is computed without revealing `px` to the server. During this exchange, the server also sends a `nonce`, indistinguishable from random.
+- The client derives a secret scalar `sk` from the password and `salt` using a key stretching function
+- The client computes a signature `s = S(sk, domain || username || nonce)`, with `domain` being a constant, application-specific string
+- The client sends `(username, s)` to the server
+- The server retrieves the `nonce` previously sent from its data store, as well as the stored `pk` values for the given user
+- The server verifies that `s` is a valid signature for `(domain || username || nonce)` using the public key `pk`, and rejects the authentication attempt if it doesn't verify.
 
 ```text
 {server}                                                                  {client}
 
-username ---------------------------------------------------------------->
 
-        <----------------------------------------------------------- (salt, nonce)
+(username, blind(px)) --------------------------------------------------->
 
-(username, salt', pk',
-  S(sk, (domain || username ||
-        nonce || salt' || pk'))) ---------------------------------------->
+        <------------------------------------------------------------- blind(salt)
 
-        <------------------------------------------ V(pk, (domain || username ||
-                                                           nonce || salt' || pk'))
+(username,
+  S(sk, (domain || username || nonce))) --------------------------------->
+
+        <------------------------------------ V(pk, (domain || username || nonce))
 ```
-
-The salt can be kept secret using a slight variation of this protocol, where a second salt is computed from the server-stored salt and the password using an Oblivious PRF, as proposed in the [OPAQUE](https://tools.ietf.org/html/draft-krawczyk-cfrg-opaque-00) protocol.
-The included crypto library implements the required primitives to do so.
 
 ## Code overview
 
@@ -91,23 +85,30 @@ Simple helper functions to convert between array types, and prefix strings with 
 
 Main server code, exposing three HTTP API endpoints:
 
+- `/signup-get-blind-salt`
 - `/signup`
-- `/login-get-salt-and-nonce`
+- `/login-get-blind-salt-and-nonce`
 - `/login`
 
 At the time of writing, AssemblyScript doesn't support JSON. Considering this limitation, and the fact that some of the data (nonces, public keys) cannot be represented as JSON values without additional encoding, exchanged values are simply concatenated in an unambiguous way.
 
 User data is stored using the KV store API, and keys have the following structure: `(<data type> || username)`. This requires user names to be valid UTF-8 sequences, a condition that is checked for every access to the KV store.
 
-#### Signup API
+#### Signup and get blind salt API (`/signup-get-blind-salt`)
 
-The `upsert` KV store function is used to store `(salt || pk)` in a key named `("salt_and_pk|" || username)`. This function will fail and return `false` if an entry is already present.
+Until a public key has been received, secret scalars used for blinding are kept in the KV store with keys constructed as follows: `("user_signup_r|" || username)`. These are temporary entries.
 
-#### Login/get salt and nonce
+#### Signup API (`/signup`)
 
-The salt is required by a client to recover the secret scalar from any device.
+Once the public key has been received, the `upsert` KV store function is used to store it along with the secret scalar, `(r || pk)` in a key named `("user_r_and_pk|" || username)`. This function will fail and return `false` if an entry is already present.
 
-If an entry for the key `("salt_and_pk|" || username)` is present, that salt is returned. If it isn't, truncated output of the `HMAC-SHA-512(username, hash_key)` function is returned to mitigate user enumeration. Note that this is only a mitigation, as access to the KV store are not guaranteed to be constant-time.
+The `("user_signup_r|" || username)` key is finally deleted by a call to `kv_remove()`.
+
+#### Login/get salt and nonce (`/login-get-blind-salt-and-nonce`)
+
+The salt is required by a client to recover the salt from any device.
+
+If an entry for the key `("user_r_and_pk|" || username)` is present, `r` and the client-blinded `px` are used to compute a blind salt. If it isn't present, the computation is made with `r` set to the truncated output of the `HMAC-SHA-512(username, hash_key)` function to mitigate user enumeration. Note that this is only a mitigation, as access to the KV store are not guaranteed to be constant-time.
 
 `hash_key` is an internal secret key, created on-demand, and written to the KV store with the `hash_key` key.
 
@@ -116,15 +117,13 @@ A random nonce is generated, and stored independently, as `(nonce || ts)` with `
 Since a single nonce is stored, an attacker could repeatedly hit this endpoint to exploit the race between calls to `/login-get-salt-and-nonce` and `/login`, and prevent a user from logging in. As a mitigation, a new nonce will not overwrite the previous value if that one was generated less than 1 second ago.
 This would not be necessary if both steps were made using the same connection. This is the purpose of the `ts` value stored along with the nonce.
 
-#### Login
+#### Login (`/login`)
 
-The second step of the login process retrieves the public key from the `("salt_and_pk|" || username)` key, as well as the nonce.
+The second step of the login process retrieves the public key from the `("user_r_and_pk|" || username)` key, as well as the nonce.
 
-If the database doesn't contain these, authentication will fail.
+If the database doesn't contain these, authentication will fail. Alternatively, `pk` can be replaced with a random public key.
 
-It then constructs the challenge `(domain || username || nonce || salt' || pk')` and verifies that the received signature is valid for that challenge.
-
-If this is the case, the value for the `("salt_and_pk|" || username)` key is overwritten with `(salt' || pk')`. Salts are updated after each login in order to mitigate precomputation attacks targeting specific users. This is not required, though, as this implies two calls to a CPU-intensive key stretching function. Although these can be parallelized, a client with constrained resources can set `salt' = salt` and `pk' = pk`.
+It then constructs the challenge `(domain || username || nonce)` and verifies that the received signature is valid for that challenge.
 
 ### assets/optimized.wasm
 
