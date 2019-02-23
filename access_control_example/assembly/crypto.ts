@@ -446,19 +446,29 @@ let D2 = fe25519([
     0xd130, 0xeef3, 0x80f2, 0x198e, 0xfce7, 0x56df, 0xd9dc, 0x2406,
 ]);
 
-let X = fe25519([
-    0xd51a, 0x8f25, 0x2d60, 0xc956, 0xa7b2, 0x9525, 0xc760, 0x692c,
-    0xdc5c, 0xfdd6, 0xe231, 0xc0a4, 0x53fe, 0xcd6e, 0x36d3, 0x2169,
-]);
-
-let Y = fe25519([
-    0x6658, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666,
-    0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666,
-]);
-
-let I = fe25519([
+let SQRTM1 = fe25519([
     0xa0b0, 0x4a0e, 0x1b27, 0xc4ee, 0xe478, 0xad2f, 0x1806, 0x2f43,
     0xd7a7, 0x3dfb, 0x0099, 0x2b4d, 0xdf0b, 0x4fc1, 0x2480, 0x2b83,
+]);
+
+let SQRTADM1 = fe25519([
+    0x2e1b, 0x497b, 0xf6a0, 0x7e97, 0x54bd, 0x1b78, 0x8e0c, 0xaf9d,
+    0xd1fd, 0x31f5, 0xfcc9, 0x0f3c, 0x48ac, 0x2b83, 0x31bf, 0x3769,
+]);
+
+let INVSQRTAMD = fe25519([
+    0x40ea, 0x805d, 0xfdaa, 0x99c8, 0x72be, 0x5a41, 0x1617, 0x9d2f,
+    0xd840, 0xfe01, 0x7b91, 0x16c2, 0xfca2, 0xcfaf, 0x8905, 0x786c,
+]);
+
+let ONEMSQD = fe25519([
+    0xc176, 0x945f, 0x09c1, 0xe27c, 0x350f, 0xcd5e, 0xa138, 0x2c81,
+    0xdfe4, 0xbe70, 0xabdd, 0x9994, 0xe0d7, 0xb2b3, 0x72a8, 0x0290,
+]);
+
+let SQDMONE = fe25519([
+    0x4d20, 0x44ed, 0x5aaa, 0x31ad, 0x1999, 0xb01e, 0x4a2c, 0xd29e,
+    0x4eeb, 0x529b, 0xd32f, 0x4cdc, 0x2241, 0xf66c, 0xb37a, 0x5968,
 ]);
 
 @inline function fe25519Copy(r: Int64Array, a: Int64Array): void {
@@ -528,6 +538,14 @@ function fe25519Pack(o: Uint8Array, n: Int64Array): void {
     }
 }
 
+function fe25519Unpack(o: Int64Array, n: Uint8Array): void {
+    let nb = n.buffer;
+    for (let i = 0; i < 16; ++i) {
+        o[i] = LOAD<u16, i64>(nb, i);
+    }
+    o[15] &= 0x7fff;
+}
+
 function fe25519Eq(a: Int64Array, b: Int64Array): bool {
     let c = new Uint8Array(32),
         d = new Uint8Array(32);
@@ -538,19 +556,34 @@ function fe25519Eq(a: Int64Array, b: Int64Array): bool {
     return verify32(c, d);
 }
 
-function fe25519Par(a: Int64Array): u8 {
+function fe25519IsNegative(a: Int64Array): bool {
     let d = new Uint8Array(32);
+
     fe25519Pack(d, a);
 
-    return d[0] & 1;
+    return (d[0] & 1) as bool;
 }
 
-function fe25519Unpack(o: Int64Array, n: Uint8Array): void {
-    let nb = n.buffer;
-    for (let i = 0; i < 16; ++i) {
-        o[i] = LOAD<u16, i64>(nb, i);
+function fe25519Cneg(h: Int64Array, f: Int64Array, b: bool): void {
+    let negf = fe25519n();
+    fe25519Sub(negf, fe25519_0, f);
+    fe25519Copy(h, f);
+    fe25519Cmov(h, negf, b as i64);
+}
+
+function fe25519Abs(h: Int64Array, f: Int64Array): void {
+    fe25519Cneg(h, f, fe25519IsNegative(f));
+}
+
+function fe25519IsZero(a: Int64Array): bool {
+    let b = new Uint8Array(32);
+
+    fe25519Pack(b, a);
+    let c: i64 = 0;
+    for (let i = 0; i < 16; i++) {
+        c |= b[i];
     }
-    o[15] &= 0x7fff;
+    return c === 0;
 }
 
 @inline function fe25519Add(o: Int64Array, a: Int64Array, b: Int64Array): void {
@@ -677,10 +710,11 @@ function add(p: Int64Array[], q: Int64Array[]): void {
 }
 
 @inline function cmov(p: Int64Array[], q: Int64Array[], b: u8): void {
-    fe25519Cmov(p[0], q[0], b);
-    fe25519Cmov(p[1], q[1], b);
-    fe25519Cmov(p[2], q[2], b);
-    fe25519Cmov(p[3], q[3], b);
+    let b_ = b as i64;
+    fe25519Cmov(p[0], q[0], b_);
+    fe25519Cmov(p[1], q[1], b_);
+    fe25519Cmov(p[2], q[2], b_);
+    fe25519Cmov(p[3], q[3], b_);
 }
 
 function pack(r: Uint8Array, p: Int64Array[]): void {
@@ -691,7 +725,7 @@ function pack(r: Uint8Array, p: Int64Array[]): void {
     fe25519Mult(tx, p[0], zi);
     fe25519Mult(ty, p[1], zi);
     fe25519Pack(r, ty);
-    r[31] ^= fe25519Par(tx) << 7;
+    r[31] ^= (fe25519IsNegative(tx) as u8) << 7;
 }
 
 function scalarmult(p: Int64Array[], s: Uint8Array, q: Int64Array[]): void {
@@ -778,7 +812,7 @@ function _signKeypairFromSeed(kp: Uint8Array): void {
     }
 }
 
-function unpack(r: Int64Array[], p: Uint8Array, neg: bool): bool {
+function unpack(r: Int64Array[], p: Uint8Array, neg: bool = false): bool {
     let t = fe25519n(),
         chk = fe25519n(),
         num = fe25519n(),
@@ -806,14 +840,14 @@ function unpack(r: Int64Array[], p: Uint8Array, neg: bool): bool {
     fe25519Sq(chk, r[0]);
     fe25519Mult(chk, chk, den);
     if (!fe25519Eq(chk, num)) {
-        fe25519Mult(r[0], r[0], I);
+        fe25519Mult(r[0], r[0], SQRTM1);
     }
     fe25519Sq(chk, r[0]);
     fe25519Mult(chk, chk, den);
     if (!fe25519Eq(chk, num)) {
         return false;
     }
-    if (fe25519Par(r[0]) === (p[31] >> 7) === neg) {
+    if ((fe25519IsNegative(r[0]) as u8 === (p[31] >> 7)) === neg) {
         fe25519Sub(r[0], fe25519_0, r[0]);
     }
     fe25519Mult(r[3], r[0], r[1]);
@@ -822,14 +856,7 @@ function unpack(r: Int64Array[], p: Uint8Array, neg: bool): bool {
 }
 
 function isIdentity(s: Uint8Array): bool {
-    let c = s[0] ^ 0x01;
-
-    for (let i = 1; i < 31; ++i) {
-        c |= s[i];
-    }
-    c |= s[31] & 0x7f;
-
-    return c === 0;
+    return allZeros(s);
 }
 
 function isCanonical(s: Uint8Array): bool {
@@ -844,6 +871,202 @@ function isCanonical(s: Uint8Array): bool {
     let d = ((0xed - 1) as u32 - (s[0] as u32)) >> 8;
 
     return !(c & d & 1);
+}
+
+function ristrettoSqrtRatioM1(x: Int64Array, u: Int64Array, v: Int64Array): bool {
+    let v3 = fe25519n(), vxx = fe25519n(),
+        m_root_check = fe25519n(), p_root_check = fe25519n(), f_root_check = fe25519n(),
+        x_sqrtm1 = fe25519n();
+    fe25519Sq(v3, v);
+    fe25519Mult(v3, v3, v);
+    fe25519Sq(x, v3);
+    fe25519Mult(x, x, v);
+    fe25519Mult(x, x, u);
+
+    fe25519Pow2523(x, x);
+    fe25519Mult(x, x, v3);
+    fe25519Mult(x, x, u);
+
+    fe25519Sq(vxx, x);
+    fe25519Mult(vxx, vxx, v);
+    fe25519Sub(m_root_check, vxx, u);
+    fe25519Add(p_root_check, vxx, u);
+    fe25519Mult(f_root_check, u, SQRTM1);
+    fe25519Add(f_root_check, vxx, f_root_check);
+    let has_m_root = fe25519IsZero(m_root_check);
+    let has_p_root = fe25519IsZero(p_root_check);
+    let has_f_root = fe25519IsZero(f_root_check);
+    fe25519Mult(x_sqrtm1, x, SQRTM1);
+
+    fe25519Cmov(x, x_sqrtm1, (has_p_root | has_f_root) as u8);
+    fe25519Abs(x, x);
+
+    return has_m_root | has_p_root;
+}
+
+function ristrettoIsCanonical(s: Uint8Array): bool {
+    let c = ((s[31] & 0x7f) ^ 0x7f) as u64;
+    for (let i = 30; i > 0; i--) {
+        c |= s[i] ^ 0xff;
+    }
+    c = (c - 1) >> 8;
+    let d = (0xed as u64 - 1 as u64 - (s[0] as u64)) >> 8;
+
+    return (1 - (((c & d) | s[0]) & 1)) as bool;
+}
+
+function ristrettoUnpack(h: Int64Array[], s: Uint8Array, neg: bool = false): bool {
+    let inv_sqrt = fe25519n(), s_ = fe25519n(), ss = fe25519n(),
+        u1 = fe25519n(), u2 = fe25519n(), u1u1 = fe25519n(), u2u2 = fe25519n(),
+        v = fe25519n(), v_u2u2 = fe25519n();
+
+    if (!ristrettoIsCanonical(s)) {
+        return false;
+    }
+    fe25519Unpack(s_, s);
+    fe25519Sq(ss, s_);
+
+    fe25519Copy(u1, fe25519_1);
+    fe25519Sub(u1, u1, ss);
+    fe25519Sq(u1u1, u1);
+
+    fe25519Copy(u2, fe25519_1);
+    fe25519Add(u2, u2, ss);
+    fe25519Sq(u2u2, u2);
+
+    fe25519Mult(v, D, u1u1);
+    fe25519Sub(v, fe25519_0, v);
+    fe25519Sub(v, v, u2u2);
+
+    fe25519Mult(v_u2u2, v, u2u2);
+
+    let was_square = ristrettoSqrtRatioM1(inv_sqrt, fe25519_1, v_u2u2);
+    let x = h[0], y = h[1], z = h[2], t = h[3];
+
+    fe25519Mult(x, inv_sqrt, u2);
+    fe25519Mult(y, inv_sqrt, x);
+    fe25519Mult(y, y, v);
+
+    fe25519Mult(x, x, s_);
+    fe25519Add(x, x, x);
+    fe25519Abs(x, x);
+    fe25519Mult(y, u1, y);
+
+    fe25519Copy(z, fe25519_1);
+    if (neg) {
+        fe25519Sub(y, fe25519_0, y);
+    }
+    fe25519Mult(t, x, y);
+
+    return !(((!was_square) | (fe25519IsNegative(t) ^ neg) | fe25519IsZero(y)) as bool);
+}
+
+function ristrettoPack(s: Uint8Array, h: Int64Array[]): void {
+    let den1 = fe25519n(), den2 = fe25519n(), den_inv = fe25519n(), eden = fe25519n(),
+        inv_sqrt = fe25519n(), ix = fe25519n(), iy = fe25519n(), s_ = fe25519n(),
+        t_z_inv = fe25519n(), u1 = fe25519n(), u2 = fe25519n(), u1_u2u2 = fe25519n(),
+        x_ = fe25519n(), y_ = fe25519n(), x_z_inv = fe25519n(), z_inv = fe25519n(),
+        zmy = fe25519n();
+    let x = h[0], y = h[1], z = h[2], t = h[3];
+
+    fe25519Add(u1, z, y);
+    fe25519Sub(zmy, z, y);
+    fe25519Mult(u1, u1, zmy);
+    fe25519Mult(u2, x, y);
+
+    fe25519Sq(u1_u2u2, u2);
+    fe25519Mult(u1_u2u2, u1, u1_u2u2);
+
+    ristrettoSqrtRatioM1(inv_sqrt, fe25519_1, u1_u2u2);
+    fe25519Mult(den1, inv_sqrt, u1);
+    fe25519Mult(den2, inv_sqrt, u2);
+    fe25519Mult(z_inv, den1, den2);
+    fe25519Mult(z_inv, z_inv, t);
+
+    fe25519Mult(ix, x, SQRTM1);
+    fe25519Mult(iy, y, SQRTM1);
+    fe25519Mult(eden, den1, INVSQRTAMD);
+
+    fe25519Mult(t_z_inv, t, z_inv);
+    let rotate = fe25519IsNegative(t_z_inv);
+
+    fe25519Copy(x_, x);
+    fe25519Copy(y_, y);
+    fe25519Copy(den_inv, den2);
+
+    fe25519Cmov(x_, iy, rotate);
+    fe25519Cmov(y_, ix, rotate);
+    fe25519Cmov(den_inv, eden, rotate);
+
+    fe25519Mult(x_z_inv, x_, z_inv);
+    fe25519Cneg(y_, y_, fe25519IsNegative(x_z_inv));
+
+    fe25519Sub(s_, z, y_);
+    fe25519Mult(s_, den_inv, s_);
+    fe25519Abs(s_, s_);
+    fe25519Pack(s, s_);
+}
+
+function ristrettoIsIdentity(s: Uint8Array): bool {
+    let c = 0;
+
+    for (let i = 0; i < 32; ++i) {
+        c |= s[i];
+    }
+    return c === 0;
+}
+
+function ristrettoElligator(p: Int64Array[], t: Int64Array): void {
+    let c = fe25519n(), n = fe25519n(), r = fe25519n(), rpd = fe25519n(),
+        s = fe25519n(), s_prime = fe25519n(), ss = fe25519n(),
+        u = fe25519n(), v = fe25519n(),
+        w0 = fe25519n(), w1 = fe25519n(), w2 = fe25519n(), w3 = fe25519n();
+
+    fe25519Sq(r, t);
+    fe25519Mult(r, SQRTM1, r);
+    fe25519Add(u, r, fe25519_1);
+    fe25519Mult(u, u, ONEMSQD);
+    fe25519Sub(c, fe25519_0, fe25519_1);
+    fe25519Add(rpd, r, D);
+    fe25519Mult(v, r, D);
+    fe25519Sub(v, c, v);
+    fe25519Mult(v, v, rpd);
+
+    let wasnt_square = 1 - (ristrettoSqrtRatioM1(s, u, v) as u8);
+    fe25519Mult(s_prime, s, t);
+    fe25519Abs(s_prime, s_prime);
+    fe25519Sub(s_prime, fe25519_0, s_prime);
+    fe25519Cmov(s, s_prime, wasnt_square);
+    fe25519Cmov(c, r, wasnt_square);
+
+    fe25519Sub(n, r, fe25519_1);
+    fe25519Mult(n, n, c);
+    fe25519Mult(n, n, SQDMONE);
+    fe25519Sub(n, n, v);
+
+    fe25519Add(w0, s, s);
+    fe25519Mult(w0, w0, v);
+    fe25519Mult(w1, n, SQRTADM1);
+    fe25519Sq(ss, s);
+    fe25519Sub(w2, fe25519_1, ss);
+    fe25519Add(w3, fe25519_1, ss);
+
+    fe25519Mult(p[0], w0, w3);
+    fe25519Mult(p[1], w2, w1);
+    fe25519Mult(p[2], w1, w3);
+    fe25519Mult(p[3], w0, w2);
+}
+
+function ristrettoFromUniform(s: Uint8Array, r: Uint8Array): void {
+    let r0 = fe25519n(), r1 = fe25519n();
+    let p0 = ge25519n(), p1 = ge25519n();
+
+    fe25519Unpack(r0, r.subarray(0, 32));
+    fe25519Unpack(r1, r.subarray(32, 64));
+    ristrettoElligator(p0, r0);
+    ristrettoElligator(p1, r1);
+    add(p0, p1);
+    ristrettoPack(s, p0);
 }
 
 // Ed25519
@@ -1282,15 +1505,37 @@ function _signVerifyDetached(sig: Uint8Array, m: Uint8Array, pk: Uint8Array): bo
 }
 
 /**
+ * Compute `x * y (mod L)`
+ * @param x Scalar
+ * @param y Scalar
+ * @returns `x * y (mod L)`
+ */
+@global export function faScalarMult(x: Uint8Array, y: Uint8Array): Uint8Array {
+    let x_ = new Int64Array(64), y_ = new Int64Array(64);
+    let o = new Int64Array(64), o_ = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) {
+        x_[i] = x[i] as i64;
+    }
+    for (let i = 0; i < 32; i++) {
+        y_[i] = y[i] as i64;
+    }
+    scMult(o, x_, y_);
+    for (let i = 0; i < 32; i++) {
+        o_[i] = o[i] as u8;
+    }
+    return o_;
+}
+
+/**
  * Multiply a point `q` by a scalar `s`
  * @param q Compressed EC point
  * @param s Scalar
  * @returns Compressed EC point `q * s`
  */
-@global export function faScalarMult(s: Uint8Array, q: Uint8Array): Uint8Array {
+@global export function faEdPointMult(s: Uint8Array, q: Uint8Array): Uint8Array {
     let p_ = ge25519n();
     let q_ = ge25519n();
-    if (!unpack(q_, q, false) || !faPointValidate(q)) {
+    if (!unpack(q_, q, false) || !faEdPointValidate(q)) {
         return null;
     }
     scalarmult(p_, s, q_);
@@ -1303,25 +1548,11 @@ function _signVerifyDetached(sig: Uint8Array, m: Uint8Array, pk: Uint8Array): bo
 }
 
 /**
- * Multiply a point `q` by a scalar `s` after clamping `s`
- * @param q Compressed EC point
- * @param s Scalar
- * @returns Compressed EC point `q * clamp(s)`
- */
-@global export function faScalarMultClamp(s: Uint8Array, q: Uint8Array): Uint8Array {
-    let s_ = new Uint8Array(32);
-    setU8(s_, s);
-    scClamp(s_);
-
-    return faScalarMult(s, q);
-}
-
-/**
  * Multiply the base point by a scalar `s`
  * @param s Scalar
  * @returns Compressed EC point `B * s`
  */
-@global export function faScalarBase(s: Uint8Array): Uint8Array {
+@global export function faEdBasePointMult(s: Uint8Array): Uint8Array {
     if (allZeros(s)) {
         return null;
     }
@@ -1334,16 +1565,30 @@ function _signVerifyDetached(sig: Uint8Array, m: Uint8Array, pk: Uint8Array): bo
 }
 
 /**
- * Multiply the base point by a clamped scalar `s`
+ * Multiply a point `q` by a scalar `s` after clamping `s`
+ * @param q Compressed EC point
  * @param s Scalar
- * @returns Compressed EC point `B * clamp(s)`
+ * @returns Compressed EC point `q * clamp(s)`
  */
-@global export function faScalarBaseClamp(s: Uint8Array): Uint8Array {
+@global export function faEdPointMultClamp(s: Uint8Array, q: Uint8Array): Uint8Array {
     let s_ = new Uint8Array(32);
     setU8(s_, s);
     scClamp(s_);
 
-    return faScalarBase(s);
+    return faEdPointMult(s, q);
+}
+
+/**
+ * Multiply the base point by a clamped scalar `s`
+ * @param s Scalar
+ * @returns Compressed EC point `B * clamp(s)`
+ */
+@global export function faEdBasePointMultClamp(s: Uint8Array): Uint8Array {
+    let s_ = new Uint8Array(32);
+    setU8(s_, s);
+    scClamp(s_);
+
+    return faEdBasePointMult(s);
 }
 
 /**
@@ -1351,7 +1596,7 @@ function _signVerifyDetached(sig: Uint8Array, m: Uint8Array, pk: Uint8Array): bo
  * @param q Compressed EC point
  * @returns `true` if verification succeeds
  */
-@global export function faPointValidate(q: Uint8Array): bool {
+@global export function faEdPointValidate(q: Uint8Array): bool {
     let l = new Uint8Array(32);
     let p_ = ge25519n();
     let q_ = ge25519n();
@@ -1378,7 +1623,7 @@ function _signVerifyDetached(sig: Uint8Array, m: Uint8Array, pk: Uint8Array): bo
  * @param q Compressed EC point
  * @returns `p` + `q`
  */
-@global export function faPointAdd(p: Uint8Array, q: Uint8Array): Uint8Array {
+@global export function faEdPointAdd(p: Uint8Array, q: Uint8Array): Uint8Array {
     let o = new Uint8Array(32);
     let p_ = ge25519n();
     let q_ = ge25519n();
@@ -1397,7 +1642,7 @@ function _signVerifyDetached(sig: Uint8Array, m: Uint8Array, pk: Uint8Array): bo
  * @param q Compressed EC point
  * @returns `p` - `q`
  */
-@global export function faPointSub(p: Uint8Array, q: Uint8Array): Uint8Array {
+@global export function faEdPointSub(p: Uint8Array, q: Uint8Array): Uint8Array {
     let o = new Uint8Array(32);
     let p_ = ge25519n();
     let q_ = ge25519n();
@@ -1408,4 +1653,104 @@ function _signVerifyDetached(sig: Uint8Array, m: Uint8Array, pk: Uint8Array): bo
     pack(o, p_);
 
     return o;
+}
+
+/**
+ * Multiply a point `q` by a scalar `s`
+ * @param q Ristretto-compressed EC point
+ * @param s Scalar
+ * @returns Compressed EC point `q * s`
+ */
+@global export function faPointMult(s: Uint8Array, q: Uint8Array): Uint8Array {
+    let p_ = ge25519n();
+    let q_ = ge25519n();
+    if (!ristrettoUnpack(q_, q)) {
+        return null;
+    }
+    scalarmult(p_, s, q_);
+    let p = new Uint8Array(32);
+    ristrettoPack(p, p_);
+    if (ristrettoIsIdentity(p)) {
+        return null;
+    }
+    return p;
+}
+
+/**
+ * Multiply the base point by a scalar `s`
+ * @param s Scalar
+ * @returns Ristretto-compressed EC point `B * s`
+ */
+@global export function faBasePointMult(s: Uint8Array): Uint8Array {
+    if (allZeros(s)) {
+        return null;
+    }
+    let p = new Uint8Array(32);
+    let p_ = ge25519n();
+    scalarmultBase(s, p_);
+    ristrettoPack(p, p_);
+
+    return p;
+}
+
+/**
+ * Verify that the point is on the main subgroup
+ * @param q Ristretto-compressed EC point
+ * @returns `true` if verification succeeds
+ */
+@global export function faPointValidate(q: Uint8Array): bool {
+    let q_ = ge25519n();
+
+    return (!allZeros(q)) & ristrettoUnpack(q_, q);
+}
+
+/**
+ * Point addition
+ * @param p Risterto-compressed EC point
+ * @param q Risterto-compressed EC point
+ * @returns `p` + `q`
+ */
+@global export function faPointAdd(p: Uint8Array, q: Uint8Array): Uint8Array {
+    let o = new Uint8Array(32);
+    let p_ = ge25519n();
+    let q_ = ge25519n();
+    if (!ristrettoUnpack(p_, p) || !ristrettoUnpack(q_, q, false)) {
+        return null;
+    }
+    add(p_, q_);
+    ristrettoPack(o, p_);
+
+    return o;
+}
+
+/**
+ * Point substraction
+ * @param p Ristretto-compressed EC point
+ * @param q Ristretto-compressed EC point
+ * @returns `p` - `q`
+ */
+@global export function faPointSub(p: Uint8Array, q: Uint8Array): Uint8Array {
+    let o = new Uint8Array(32);
+    let p_ = ge25519n();
+    let q_ = ge25519n();
+    if (!ristrettoUnpack(p_, p) || !ristrettoUnpack(q_, q, true)) {
+        return null;
+    }
+    add(p_, q_);
+    ristrettoPack(o, p_);
+
+    return o;
+}
+
+/**
+ * Hash-to-point
+ * @param r 512 bit hash
+ * @returns Ristretto-compressed EC point
+ */
+@global export function faPointFromUniform(r: Uint8Array): Uint8Array {
+    let p = new Uint8Array(32);
+
+    ristrettoFromUniform(p, r);
+
+    return p;
 }
