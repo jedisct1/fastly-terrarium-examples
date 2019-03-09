@@ -268,7 +268,7 @@ function signup(req: Request): Response {
     }
     let pk = new Uint8Array(SIGN_PUBLICKEYBYTES);
     u8ArrayCopy(pk, pk_);
-    if (!faPointEdValidate(pk)) {
+    if (!faPointValidate(pk)) {
         response.body_string = "Invalid public key (encoded point)";
         return response;
     }

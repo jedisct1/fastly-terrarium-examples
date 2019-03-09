@@ -64,7 +64,8 @@ The protocol assumes that the client and the server communicate over a secure ch
 
 This code is used both by the JavaScript client code and by the AssemblyScript running on Terrarium. It implements the following cryptographic primitives in AssemblyScript:
 
-- The EdDSA signature scheme
+- Schnorr signatures (Ed25519 and over the Ristretto group)
+- Finite field arithmetic on integers and Curve25519 points
 - The HMAC-SHA-512 keyed MAC.
 
 Functions exported by this module can be called by the main server code using their native interface, since both are written in the same language.
