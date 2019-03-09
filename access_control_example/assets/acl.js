@@ -83,8 +83,8 @@ function createBlindAuthInfo(username_bin, password_bin) {
     const zh_scalar_wasm = wasm.newArray(zh.subarray(0, wasm.FA_SCALARBYTES));
 
     const r_inv_wasm = wasm.faScalarInverse(r_wasm);
-    const px_wasm = wasm.faEdBasePointMult(zh_scalar_wasm);
-    const blind_auth_info = wasm.getArray(Uint8Array, wasm.faEdPointMult(r_inv_wasm, px_wasm));
+    const px_wasm = wasm.faBasePointMult(zh_scalar_wasm);
+    const blind_auth_info = wasm.getArray(Uint8Array, wasm.faPointMult(r_inv_wasm, px_wasm));
 
     return {
         r,
@@ -160,7 +160,7 @@ function signupInit() {
                 return;
             }
             const blind_salt = new Uint8Array(await response.arrayBuffer());
-            let salt_wasm = wasm.faEdPointMult(wasm.newArray(r_and_blind_auth_info.r), wasm.newArray(blind_salt));
+            let salt_wasm = wasm.faPointMult(wasm.newArray(r_and_blind_auth_info.r), wasm.newArray(blind_salt));
             if (!salt_wasm) {
                 error("#signup .error", "Unexpected response from the server (weak salt)");
                 enable("#signup input[type=submit]");
@@ -267,7 +267,7 @@ function loginInit() {
             const blind_salt = blind_salt_and_nonce.subarray(0, wasm.FA_POINTBYTES);
             const nonce = blind_salt_and_nonce.subarray(wasm.FA_POINTBYTES);
 
-            let salt_wasm = wasm.faEdPointMult(wasm.newArray(r_and_blind_auth_info.r), wasm.newArray(blind_salt));
+            let salt_wasm = wasm.faPointMult(wasm.newArray(r_and_blind_auth_info.r), wasm.newArray(blind_salt));
             if (!salt_wasm) {
                 enable("#login input[type=submit]");
                 error("#login .error", "Unexpected response from the server (weak blind salt)");

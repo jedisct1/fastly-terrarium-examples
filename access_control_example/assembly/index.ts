@@ -1,7 +1,7 @@
 import { run_user_kvs, Request, KVStore, Response, Time } from "./http_guest";
 import {
-    hmac, faScalarReduce, faEdPointMult, SIGN_BYTES, SIGN_PUBLICKEYBYTES, signVerify,
-    faEdPointValidate, FA_SCALARBYTES, FA_POINTBYTES
+    hmac, faScalarReduce, faPointMult, SIGN_BYTES, SIGN_PUBLICKEYBYTES, signVerify,
+    faPointValidate, FA_SCALARBYTES, FA_POINTBYTES
 } from "./crypto";
 import {
     bytesDecode, bytesEncode, bytesNext, genericArrayToU8Array, getRandom, keyFor,
@@ -103,7 +103,7 @@ function loginGetBlindSaltAndNonce(req: Request): Response {
     if (r_and_pk) {
         r = r_and_pk.subarray(0, FA_POINTBYTES);
     }
-    let blind_salt = faEdPointMult(r, blind_auth_info);
+    let blind_salt = faPointMult(r, blind_auth_info);
     if (blind_salt === null) {
         response.body_string = "Invalid auth info (identity)";
         return response;
@@ -209,7 +209,7 @@ function signupGetBlindSalt(req: Request): Response {
     }
     let blind_auth_info = new Uint8Array(FA_POINTBYTES);
     u8ArrayCopy(blind_auth_info, blind_auth_info_);
-    if (!faEdPointValidate(blind_auth_info)) {
+    if (!faPointValidate(blind_auth_info)) {
         response.body_string = "Invalid auth info (point encoding)";
         return response;
     }
@@ -229,7 +229,7 @@ function signupGetBlindSalt(req: Request): Response {
             r = kvsGet(signup_r_key) || r;
         }
     }
-    let blind_salt = faEdPointMult(r, blind_auth_info);
+    let blind_salt = faPointMult(r, blind_auth_info);
     if (blind_salt === null) {
         response.body_string = "Invalid auth info (identity)";
         return response;
@@ -268,7 +268,7 @@ function signup(req: Request): Response {
     }
     let pk = new Uint8Array(SIGN_PUBLICKEYBYTES);
     u8ArrayCopy(pk, pk_);
-    if (!faEdPointValidate(pk)) {
+    if (!faPointEdValidate(pk)) {
         response.body_string = "Invalid public key (encoded point)";
         return response;
     }
