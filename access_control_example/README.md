@@ -25,7 +25,7 @@ The protocol assumes that the client and the server communicate over a secure ch
 - The server checks that `username` hasn't already been registered, and stores `(username, pk)`.
 
 ```text
-{server}                                                                  {client}
+{client}                                                                  {server}
 
 (username, blind(px)) --------------------------------------------------->
 
@@ -45,7 +45,7 @@ The protocol assumes that the client and the server communicate over a secure ch
 - The server verifies that `s` is a valid signature for `(domain || username || nonce)` using the public key `pk`, and rejects the authentication attempt if it doesn't verify.
 
 ```text
-{server}                                                                  {client}
+{client}                                                                  {server}
 
 
 (username, blind(px)) --------------------------------------------------->
@@ -55,7 +55,7 @@ The protocol assumes that the client and the server communicate over a secure ch
 (username,
   S(sk, (domain || username || nonce))) --------------------------------->
 
-        <------------------------------------ V(pk, (domain || username || nonce))
+        <------------------------------- V(pk, S(sk, domain || username || nonce))
 ```
 
 ## Code overview
