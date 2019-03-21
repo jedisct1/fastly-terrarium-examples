@@ -47,7 +47,6 @@ The protocol assumes that the client and the server communicate over a secure ch
 ```text
 {client}                                                                  {server}
 
-
 (username, blind(px)) --------------------------------------------------->
 
         <------------------------------------------------------------- blind(salt)
